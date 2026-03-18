@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"server"
+)
 
 func main() {
 	fmt.Println("Hello World!")
+	server.StartServer()
 }

@@ -73,6 +73,7 @@ func StartServer() {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 
+	e.AcquireContext().Logger().Info("Server started on port: " + port)
 	if err := e.Start(":" + port); err != nil {
 		e.Logger.Error("Failed to start server", "error", err)
 	}
