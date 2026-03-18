@@ -28,25 +28,41 @@ func NewWebSocketHandler(e *echo.Group) *WebSocketHandler {
 func (h *WebSocketHandler) RegisterRoutes() {
 	h.e.GET("/ws", h.websocketRoute)
 }
+
 func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
-	ClientID := c.Request().Header.Get("ClientID")
-	if ClientID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Missing data")
+	clientID := c.Request().Header.Get("ClientID")
+	if clientID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientID")
 	}
 
 	websocket.Server{
-		Handshake: func(cfg *websocket.Config, r *http.Request) error {
-			return nil
-		},
 		Handler: func(ws *websocket.Conn) {
 			defer ws.Close()
+
+			ctx := c.Request().Context()
+
+			// Add client on connect
+			client := &nodemanager.Client{
+				ClientId: clientID,
+				Status:   1,
+			}
+			if err := nodemanager.AddClient(ctx, client); err != nil {
+				c.Logger().Error("Failed to add client", "message", err.Error())
+			}
+
+			// Ensure client removal on disconnect
+			defer func() {
+				if err := nodemanager.RemoveClient(ctx, clientID); err != nil {
+					c.Logger().Error("Failed to remove client", "message", err.Error())
+				}
+			}()
 
 			heartbeatTimeout := 10 * time.Second
 			lastHeartbeat := time.Now()
 
-			// Monitor heartbeat
 			done := make(chan struct{})
 
+			// Heartbeat monitor
 			go func() {
 				ticker := time.NewTicker(1 * time.Second)
 				defer ticker.Stop()
@@ -55,7 +71,7 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 					select {
 					case <-ticker.C:
 						if time.Since(lastHeartbeat) > heartbeatTimeout {
-							c.Logger().Error("heartbeat timeout, closing connection")
+							c.Logger().Error("Heartbeat timeout, closing connection")
 							ws.Close()
 							return
 						}
@@ -65,10 +81,11 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 				}
 			}()
 
+			// Message loop
 			for {
 				var msg string
 				if err := websocket.Message.Receive(ws, &msg); err != nil {
-					c.Logger().Error("WS receive error", "error", err)
+					c.Logger().Error("WS receive error:", err)
 					close(done)
 					return
 				}
@@ -79,6 +96,7 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 					continue
 				}
 
+				// Handle normal message
 				fmt.Println("Received:", msg)
 			}
 		},
