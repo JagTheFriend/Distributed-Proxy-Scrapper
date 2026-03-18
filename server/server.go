@@ -9,9 +9,22 @@ import (
 	"server/routes"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 )
+
+type CustomValidator struct {
+	validator *validator.Validate
+}
+
+func (cv *CustomValidator) Validate(i any) error {
+	if err := cv.validator.Struct(i); err != nil {
+		// Optionally, you could return the error to give each route more control over the status code
+		return echo.ErrBadRequest.Wrap(err)
+	}
+	return nil
+}
 
 func StartServer() {
 	port, err := common.GetEnv("PORT")
@@ -46,9 +59,15 @@ func StartServer() {
 		},
 	}))
 
+	e.Validator = &CustomValidator{validator: validator.New()}
+
 	groupedRoute := e.Group("/api/v1")
+
 	websocketHandler := routes.NewWebSocketHandler(groupedRoute)
 	websocketHandler.RegisterRoutes()
+
+	triggerHandler := routes.NewTriggerHanlder(groupedRoute)
+	triggerHandler.RegisterRoutes()
 
 	groupedRoute.GET("/health", func(c *echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
