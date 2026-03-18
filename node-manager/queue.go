@@ -7,7 +7,7 @@ import (
 
 type Client struct {
 	ClientId   string  `json:"clientId"`
-	Status     int     `json:"status"`
+	Status     int     `json:"status"` // 0 = Available, 1 = Occupied, 2 = Blocked
 	ClientType *string `json:"clientType"`
 }
 
