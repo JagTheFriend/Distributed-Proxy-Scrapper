@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	nodemanager "node-manager"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,9 +25,9 @@ type TriggerHandlerStruct struct {
 }
 
 type TriggerRequestPayload struct {
-	Link        string `json:"link" validate:"required,url"`
-	ClientId    string `json:"clientId,omitempty" validate:"omitempty"`
-	NoOfClients int    `json:"noOfClients,omitempty" validate:"omitempty,gt=0"`
+	Link     string `json:"link" validate:"required,url"`
+	Method   string `json:"method" validate:"required"`
+	ClientId string `json:"clientId,omitempty"`
 }
 
 func NewTriggerHanlder(e *echo.Group) *TriggerHandlerStruct {
@@ -35,7 +36,95 @@ func NewTriggerHanlder(e *echo.Group) *TriggerHandlerStruct {
 }
 
 func (h *TriggerHandlerStruct) RegisterRoutes() {
-	h.e.POST("/trigger", h.triggerMultiple)
+	h.e.POST("/trigger/single", h.triggerSingle)
+	h.e.POST("/trigger/multiple", h.triggerMultiple)
+}
+
+// Normalize & validate HTTP method
+func normalizeMethod(method string) string {
+	method = strings.ToUpper(method)
+	switch method {
+	case "GET", "POST", "PUT", "PATCH", "DELETE":
+		return method
+	default:
+		return "GET"
+	}
+}
+
+func (h *TriggerHandlerStruct) triggerSingle(c *echo.Context) error {
+	var payload TriggerRequestPayload
+
+	if err := c.Bind(&payload); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	method := normalizeMethod(payload.Method)
+
+	var clientId string
+
+	// 1. Use provided clientId
+	if payload.ClientId != "" {
+		clientId = payload.ClientId
+	} else {
+		// 2. Pick available node
+		key, err := nodemanager.GetAvailableClient(ctx)
+		if err != nil {
+			return echo.NewHTTPError(500, "No nodes available")
+		}
+		clientId = key[len("client:available:"):]
+	}
+
+	// mark busy
+	err := nodemanager.SetClientBusy(ctx, clientId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to mark node as busy")
+	}
+
+	// get WS connection
+	wsMutex.Lock()
+	ws, ok := wsClients[clientId]
+	wsMutex.Unlock()
+
+	if !ok {
+		return echo.NewHTTPError(500, "Node not connected")
+	}
+
+	jobId := uuid.NewString()
+
+	req := map[string]interface{}{
+		"type":  "JOB",
+		"jobId": jobId,
+		"payload": map[string]interface{}{
+			"method": method,
+			"url":    payload.Link,
+		},
+	}
+
+	data, _ := json.Marshal(req)
+
+	ch := make(chan ResultMessage)
+
+	wsMutex.Lock()
+	jobChannels[jobId] = ch
+	wsMutex.Unlock()
+
+	defer func() {
+		wsMutex.Lock()
+		delete(jobChannels, jobId)
+		wsMutex.Unlock()
+	}()
+
+	if err := websocket.Message.Send(ws, string(data)); err != nil {
+		return err
+	}
+
+	select {
+	case res := <-ch:
+		return c.JSON(http.StatusOK, res)
+	case <-time.After(20 * time.Second):
+		return echo.NewHTTPError(504, "Timeout")
+	}
 }
 
 func (h *TriggerHandlerStruct) triggerMultiple(c *echo.Context) error {
@@ -45,8 +134,9 @@ func (h *TriggerHandlerStruct) triggerMultiple(c *echo.Context) error {
 	}
 
 	ctx := context.Background()
+	method := normalizeMethod(payload.Method)
 
-	// 1. pick node
+	// pick node
 	key, err := nodemanager.GetAvailableClient(ctx)
 	if err != nil {
 		return echo.NewHTTPError(500, "No nodes available")
@@ -54,10 +144,13 @@ func (h *TriggerHandlerStruct) triggerMultiple(c *echo.Context) error {
 
 	clientId := key[len("client:available:"):]
 
-	// 2. mark busy
-	nodemanager.SetClientBusy(ctx, clientId)
+	// mark busy
+	err = nodemanager.SetClientBusy(ctx, clientId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to mark node as busy")
+	}
 
-	// 3. get WS
+	// get WS
 	wsMutex.Lock()
 	ws, ok := wsClients[clientId]
 	wsMutex.Unlock()
@@ -66,21 +159,21 @@ func (h *TriggerHandlerStruct) triggerMultiple(c *echo.Context) error {
 		return echo.NewHTTPError(500, "Node not connected")
 	}
 
-	// 4. create job
+	// create job
 	jobId := uuid.NewString()
 
 	req := map[string]interface{}{
 		"type":  "JOB",
 		"jobId": jobId,
 		"payload": JobRequest{
-			Method: "GET",
+			Method: method,
 			URL:    payload.Link,
 		},
 	}
 
 	data, _ := json.Marshal(req)
 
-	// 5. create channel
+	// create channel
 	ch := make(chan ResultMessage)
 	wsMutex.Lock()
 	jobChannels[jobId] = ch
@@ -92,16 +185,15 @@ func (h *TriggerHandlerStruct) triggerMultiple(c *echo.Context) error {
 		wsMutex.Unlock()
 	}()
 
-	// 6. send job
+	// send job
 	if err := websocket.Message.Send(ws, string(data)); err != nil {
 		return err
 	}
 
-	// 7. wait response
+	// wait response
 	select {
 	case res := <-ch:
 		return c.JSON(http.StatusOK, res)
-
 	case <-time.After(20 * time.Second):
 		return echo.NewHTTPError(504, "Timeout")
 	}
