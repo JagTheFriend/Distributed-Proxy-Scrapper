@@ -30,9 +30,9 @@ func (h *WebSocketHandler) RegisterRoutes() {
 }
 
 func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
-	clientID := c.Request().Header.Get("ClientID")
-	if clientID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientID")
+	clientId := c.Request().Header.Get("ClientId")
+	if clientId == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientId")
 	}
 
 	websocket.Server{
@@ -43,7 +43,7 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 
 			// Add client on connect
 			client := &nodemanager.Client{
-				ClientId: clientID,
+				ClientId: clientId,
 			}
 			if err := nodemanager.AddClient(ctx, client.ClientId); err != nil {
 				c.Logger().Error("Failed to add client", "message", err.Error())
@@ -51,7 +51,7 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 
 			// Ensure client removal on disconnect
 			defer func() {
-				if err := nodemanager.RemoveClient(ctx, clientID); err != nil {
+				if err := nodemanager.RemoveClient(ctx, clientId); err != nil {
 					c.Logger().Error("Failed to remove client", "message", err.Error())
 				}
 			}()
@@ -71,6 +71,7 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 					case <-ticker.C:
 						if time.Since(lastHeartbeat) > heartbeatTimeout {
 							c.Logger().Error("Heartbeat timeout, closing connection")
+							nodemanager.RemoveClient(ctx, clientId)
 							ws.Close()
 							return
 						}
