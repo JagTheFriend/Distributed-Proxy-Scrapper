@@ -44,9 +44,8 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 			// Add client on connect
 			client := &nodemanager.Client{
 				ClientId: clientID,
-				Status:   1,
 			}
-			if err := nodemanager.AddClient(ctx, client); err != nil {
+			if err := nodemanager.AddClient(ctx, client.ClientId); err != nil {
 				c.Logger().Error("Failed to add client", "message", err.Error())
 			}
 
