@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	nodemanager "node-manager"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -41,23 +42,28 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 
 			ctx := c.Request().Context()
 
-			// Add client on connect
-			client := &nodemanager.Client{
-				ClientId: clientId,
-			}
-			if err := nodemanager.AddClient(ctx, client.ClientId); err != nil {
+			// Add client
+			if err := nodemanager.AddClient(ctx, clientId); err != nil {
 				c.Logger().Error("Failed to add client", "message", err.Error())
 			}
 
-			// Ensure client removal on disconnect
-			defer func() {
-				if err := nodemanager.RemoveClient(ctx, clientId); err != nil {
-					c.Logger().Error("Failed to remove client", "message", err.Error())
+			// Ensure removal once
+			removed := false
+			removeClient := func() {
+				if !removed {
+					removed = true
+					if err := nodemanager.RemoveClient(ctx, clientId); err != nil {
+						c.Logger().Error("Failed to remove client", "message", err.Error())
+					}
 				}
-			}()
+			}
+			defer removeClient()
 
 			heartbeatTimeout := 10 * time.Second
 			lastHeartbeat := time.Now()
+
+			// mutex to avoid race
+			var mu sync.Mutex
 
 			done := make(chan struct{})
 
@@ -69,9 +75,12 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 				for {
 					select {
 					case <-ticker.C:
-						if time.Since(lastHeartbeat) > heartbeatTimeout {
+						mu.Lock()
+						expired := time.Since(lastHeartbeat) > heartbeatTimeout
+						mu.Unlock()
+
+						if expired {
 							c.Logger().Error("Heartbeat timeout, closing connection")
-							nodemanager.RemoveClient(ctx, clientId)
 							ws.Close()
 							return
 						}
@@ -85,18 +94,19 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 			for {
 				var msg string
 				if err := websocket.Message.Receive(ws, &msg); err != nil {
-					c.Logger().Error("WS receive error:", err)
+					c.Logger().Error("WS receive error", "message", err.Error())
 					close(done)
 					return
 				}
 
 				// Handle heartbeat
 				if msg == "heartbeat" {
+					mu.Lock()
 					lastHeartbeat = time.Now()
+					mu.Unlock()
 					continue
 				}
 
-				// Handle normal message
 				fmt.Println("Received:", msg)
 			}
 		},
