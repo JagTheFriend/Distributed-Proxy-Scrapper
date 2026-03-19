@@ -36,28 +36,24 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientId")
 	}
 
+	ctx := c.Request().Context()
+
+	// Add client
+	if err := nodemanager.AddClient(ctx, clientId); err != nil {
+		c.Logger().Error("Failed to add client", "message", err.Error())
+		return c.JSON(http.StatusInternalServerError, "Failed to store client")
+	}
+
+	// Ensure client removal on disconnect
+	defer func() {
+		if err := nodemanager.RemoveClient(ctx, clientId); err != nil {
+			c.Logger().Error("Failed to remove client", "message", err.Error())
+		}
+	}()
+
 	websocket.Server{
 		Handler: func(ws *websocket.Conn) {
 			defer ws.Close()
-
-			ctx := c.Request().Context()
-
-			// Add client
-			if err := nodemanager.AddClient(ctx, clientId); err != nil {
-				c.Logger().Error("Failed to add client", "message", err.Error())
-			}
-
-			// Ensure removal once
-			removed := false
-			removeClient := func() {
-				if !removed {
-					removed = true
-					if err := nodemanager.RemoveClient(ctx, clientId); err != nil {
-						c.Logger().Error("Failed to remove client", "message", err.Error())
-					}
-				}
-			}
-			defer removeClient()
 
 			heartbeatTimeout := 10 * time.Second
 			lastHeartbeat := time.Now()
