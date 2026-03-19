@@ -1,0 +1,223 @@
+{
+  "yaakVersion": "2026.3.1",
+  "yaakSchema": 4,
+  "timestamp": "2026-03-19T15:41:44.524094252",
+  "resources": {
+    "workspaces": [
+      {
+        "model": "workspace",
+        "id": "wk_node_manager",
+        "createdAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T18:30:00",
+        "authentication": {},
+        "authenticationType": null,
+        "description": "Node Manager API Workspace",
+        "headers": [],
+        "name": "Node Manager",
+        "encryptionKeyChallenge": null,
+        "settingValidateCertificates": true,
+        "settingFollowRedirects": true,
+        "settingRequestTimeout": 0,
+        "settingDnsOverrides": []
+      }
+    ],
+    "environments": [
+      {
+        "model": "environment",
+        "id": "ev_node_env",
+        "workspaceId": "wk_node_manager",
+        "createdAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T15:21:38.259336862",
+        "name": "Global Variables",
+        "public": false,
+        "base": true,
+        "parentModel": "workspace",
+        "parentId": null,
+        "variables": [
+          {
+            "enabled": true,
+            "name": "BASE_URL",
+            "value": "http://localhost:3000/api/v1",
+            "id": "var_base_url"
+          }
+        ],
+        "color": null,
+        "sortPriority": 0.0
+      }
+    ],
+    "folders": [],
+    "httpRequests": [
+      {
+        "model": "http_request",
+        "id": "rq_health",
+        "createdAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T18:30:00",
+        "workspaceId": "wk_node_manager",
+        "folderId": null,
+        "authentication": {},
+        "authenticationType": null,
+        "body": {},
+        "bodyType": null,
+        "description": "Health check endpoint",
+        "headers": [],
+        "method": "GET",
+        "name": "Health Check",
+        "sortPriority": 0.0,
+        "url": "${[ BASE_URL ]}/health",
+        "urlParameters": []
+      },
+      {
+        "model": "http_request",
+        "id": "rq_trigger_single",
+        "createdAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T18:30:00",
+        "workspaceId": "wk_node_manager",
+        "folderId": null,
+        "authentication": {},
+        "authenticationType": null,
+        "body": {
+          "text": "{\n  \"link\": \"https://example.com\",\n  \"method\": \"GET\",\n  \"clientId\": \"optional-client-id\"\n}"
+        },
+        "bodyType": "application/json",
+        "description": "Trigger a job on a single node",
+        "headers": [
+          {
+            "enabled": true,
+            "name": "Content-Type",
+            "value": "application/json",
+            "id": "hdr_single_ct"
+          }
+        ],
+        "method": "POST",
+        "name": "Trigger Single",
+        "sortPriority": 1000.0,
+        "url": "${[ BASE_URL ]}/trigger/single",
+        "urlParameters": []
+      },
+      {
+        "model": "http_request",
+        "id": "rq_trigger_multiple",
+        "createdAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T18:30:00",
+        "workspaceId": "wk_node_manager",
+        "folderId": null,
+        "authentication": {},
+        "authenticationType": null,
+        "body": {
+          "text": "{\n  \"link\": \"https://example.com\",\n  \"method\": \"POST\"\n}"
+        },
+        "bodyType": "application/json",
+        "description": "Trigger a job using available node",
+        "headers": [
+          {
+            "enabled": true,
+            "name": "Content-Type",
+            "value": "application/json",
+            "id": "hdr_multi_ct"
+          }
+        ],
+        "method": "POST",
+        "name": "Trigger Multiple",
+        "sortPriority": 2000.0,
+        "url": "${[ BASE_URL ]}/trigger/multiple",
+        "urlParameters": []
+      },
+      {
+        "model": "http_request",
+        "id": "rq_QDB7VawEqo",
+        "createdAt": "2026-03-19T15:31:49.735819527",
+        "updatedAt": "2026-03-19T15:40:37.026039874",
+        "workspaceId": "wk_node_manager",
+        "folderId": null,
+        "authentication": {},
+        "authenticationType": null,
+        "body": {},
+        "bodyType": null,
+        "description": "",
+        "headers": [
+          {
+            "enabled": true,
+            "name": "Host",
+            "value": "localhost:3000",
+            "id": "yRn8NUqaWb"
+          },
+          {
+            "enabled": true,
+            "name": "Upgrade",
+            "value": "websocket",
+            "id": "N5QYPWsrqs"
+          },
+          {
+            "enabled": true,
+            "name": "Connection",
+            "value": "Upgrade",
+            "id": "NuHwRGw9TM"
+          },
+          {
+            "enabled": true,
+            "name": "Sec-WebSocket-Key",
+            "value": "dGhlIHNhbXBsZSBub25jZQ==",
+            "id": "pnyhbWxrp5"
+          },
+          {
+            "enabled": true,
+            "name": "Sec-WebSocket-Version",
+            "value": "13",
+            "id": "NvrBUXhQZG"
+          }
+        ],
+        "method": "GET",
+        "name": "Websocket Test",
+        "sortPriority": 3000.0,
+        "url": "${[ BASE_URL ]}/ws?clientId=123&clientType=web",
+        "urlParameters": [
+          {
+            "enabled": true,
+            "name": "clientId",
+            "value": "124",
+            "id": "Q04Kgvbqvi"
+          },
+          {
+            "enabled": true,
+            "name": "clientType",
+            "value": "web",
+            "id": "S2EKTdMIRY"
+          },
+          {
+            "enabled": true,
+            "name": "",
+            "value": "",
+            "id": "qFUgFJZGf2"
+          }
+        ]
+      }
+    ],
+    "grpcRequests": [],
+    "websocketRequests": [
+      {
+        "model": "websocket_request",
+        "id": "wr_ws_connect",
+        "createdAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T15:40:28.329561466",
+        "workspaceId": "wk_node_manager",
+        "folderId": null,
+        "authentication": {},
+        "authenticationType": null,
+        "description": "WebSocket connection for worker nodes",
+        "headers": [
+          {
+            "enabled": true,
+            "name": "",
+            "value": "",
+            "id": "8R9YEwgMeK"
+          }
+        ],
+        "message": "{ \"type\": \"PING\" }",
+        "name": "WebSocket Connect",
+        "sortPriority": 3000.0,
+        "url": "ws://localhost:3000/api/v1/ws?clientId=123&clientType=web",
+        "urlParameters": []
+      }
+    ]
+  }
+}
