@@ -40,23 +40,6 @@ Core Components:
   * Tracks node status
   * Enables fast lookup
 
-[System Design](./docs/system-design.png)
+![System Design](./docs/system-design.png)
+Rough Sketch
 
-## Data Model
-
-### Client (Node)
-
-```json
-{
-  "clientId": "node_123",
-  "clientType": "mobile",
-  "ip": "192.168.1.1",
-  "geo": {
-    "country": "IN",
-    "city": "Bhubaneswar"
-  },
-  "status": "idle",
-  "connectedAt": 1710000000,
-  "latencyMs": 20,
-  "load": 0.
-```
