@@ -34,7 +34,7 @@ Core Components:
   * Dispatches job
   * Waits for response
 
-* **Valkey (Redis)**
+* **Valkey**
 
   * Stores node registry
   * Tracks node status

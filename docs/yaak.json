@@ -1,7 +1,7 @@
 {
   "yaakVersion": "2026.3.1",
   "yaakSchema": 4,
-  "timestamp": "2026-03-19T15:53:27.313581630",
+  "timestamp": "2026-03-19T17:00:23.951828309",
   "resources": {
     "workspaces": [
       {
@@ -70,13 +70,13 @@
         "model": "http_request",
         "id": "rq_trigger_single",
         "createdAt": "2026-03-19T18:30:00",
-        "updatedAt": "2026-03-19T15:53:07.592910731",
+        "updatedAt": "2026-03-19T16:39:36.822305433",
         "workspaceId": "wk_node_manager",
         "folderId": null,
         "authentication": {},
         "authenticationType": null,
         "body": {
-          "text": "{\n  \"link\": \"https://example.com\",\n  \"method\": \"GET\",\n  \"clientId\": \"123\"\n}"
+          "text": "{\n  \"link\": \"https://jsonplaceholder.typicode.com/todos/1\",\n  \"method\": \"GET\",\n  \"clientId\": \"456\"\n}"
         },
         "bodyType": "application/json",
         "description": "Trigger a job on a single node",
@@ -98,13 +98,13 @@
         "model": "http_request",
         "id": "rq_trigger_multiple",
         "createdAt": "2026-03-19T18:30:00",
-        "updatedAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T16:50:19.644547231",
         "workspaceId": "wk_node_manager",
         "folderId": null,
         "authentication": {},
         "authenticationType": null,
         "body": {
-          "text": "{\n  \"link\": \"https://example.com\",\n  \"method\": \"POST\"\n}"
+          "text": "{\n  \"link\": \"https://jsonplaceholder.typicode.com/todos/3\",\n  \"method\": \"GET\"\n}"
         },
         "bodyType": "application/json",
         "description": "Trigger a job using available node",
@@ -198,7 +198,7 @@
         "model": "websocket_request",
         "id": "wr_ws_connect",
         "createdAt": "2026-03-19T18:30:00",
-        "updatedAt": "2026-03-19T15:40:28.329561466",
+        "updatedAt": "2026-03-19T16:29:45.713774558",
         "workspaceId": "wk_node_manager",
         "folderId": null,
         "authentication": {},
@@ -215,7 +215,7 @@
         "message": "{ \"type\": \"PING\" }",
         "name": "WebSocket Connect",
         "sortPriority": 3000.0,
-        "url": "ws://localhost:3000/api/v1/ws?clientId=123&clientType=web",
+        "url": "ws://localhost:3000/api/v1/ws?clientId=master&clientType=web",
         "urlParameters": []
       }
     ]
