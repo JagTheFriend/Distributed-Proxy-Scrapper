@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"strings"
 
 	"github.com/valkey-io/valkey-glide/go/v2/models"

@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	nodemanager "node-manager"
@@ -58,7 +59,6 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 		ClientId:    clientId,
 		ClientType:  clientType,
 		IP:          c.RealIP(),
-		Status:      "idle",
 		ConnectedAt: time.Now().Unix(),
 	}
 
@@ -127,7 +127,7 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 					}
 
 					// mark node idle again
-					nodemanager.SetClientIdle(ctx, clientId)
+					nodemanager.SetClientIdle(context.Background(), clientId)
 				}
 			}
 		}),
