@@ -1,7 +1,7 @@
 {
   "yaakVersion": "2026.3.1",
   "yaakSchema": 4,
-  "timestamp": "2026-03-19T15:41:44.524094252",
+  "timestamp": "2026-03-19T15:53:27.313581630",
   "resources": {
     "workspaces": [
       {
@@ -70,13 +70,13 @@
         "model": "http_request",
         "id": "rq_trigger_single",
         "createdAt": "2026-03-19T18:30:00",
-        "updatedAt": "2026-03-19T18:30:00",
+        "updatedAt": "2026-03-19T15:53:07.592910731",
         "workspaceId": "wk_node_manager",
         "folderId": null,
         "authentication": {},
         "authenticationType": null,
         "body": {
-          "text": "{\n  \"link\": \"https://example.com\",\n  \"method\": \"GET\",\n  \"clientId\": \"optional-client-id\"\n}"
+          "text": "{\n  \"link\": \"https://example.com\",\n  \"method\": \"GET\",\n  \"clientId\": \"123\"\n}"
         },
         "bodyType": "application/json",
         "description": "Trigger a job on a single node",
