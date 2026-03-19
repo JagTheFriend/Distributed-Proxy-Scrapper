@@ -40,7 +40,7 @@ func AddClient(ctx context.Context, clientId string) error {
 
 func RemoveClient(ctx context.Context, clientId string) error {
 	valkey := GetValKeyClient()
-	_, err := valkey.Del(ctx, []string{"client:" + clientId})
+	_, err := valkey.Del(ctx, []string{"client:available:" + clientId, "client:occupied:" + clientId, "client:blocked:" + clientId})
 	return err
 }
 
