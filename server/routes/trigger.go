@@ -10,7 +10,7 @@ import (
 
 type TriggerRequestPayload struct {
 	Link        string `json:"link" validate:"required,url"`
-	ClientId    string `json:"clientId,omitempty" validate:"omitempty,uuid4"`
+	ClientId    string `json:"clientId,omitempty" validate:"omitempty"`
 	NoOfClients int    `json:"noOfClients,omitempty" validate:"omitempty,gt=0"`
 }
 
@@ -35,23 +35,26 @@ func (h *TriggerHandlerStruct) RegisterRoutes() {
 
 func (h *TriggerHandlerStruct) triggerSingle(c *echo.Context) error {
 	var payload TriggerRequestPayload
-	if err := c.Bind(payload); err != nil {
+
+	if err := c.Bind(&payload); err != nil {
 		return err
 	}
-	if err := c.Validate(payload); err != nil {
+	if err := c.Validate(&payload); err != nil {
 		return err
 	}
+
 	return c.JSON(http.StatusOK, payload)
 }
 
 func (h *TriggerHandlerStruct) triggerMultiple(c *echo.Context) error {
 	var payload TriggerRequestPayload
-	if err := c.Bind(payload); err != nil {
-		return err
-	}
-	if err := c.Validate(payload); err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, payload)
 
+	if err := c.Bind(&payload); err != nil {
+		return err
+	}
+	if err := c.Validate(&payload); err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, payload)
 }
