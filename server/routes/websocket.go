@@ -35,16 +35,31 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 	clientType := c.Request().Header.Get("ClientType")
 
 	if clientId == "" || clientType == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientId")
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientId or ClientType")
 	}
 
-	ctx := c.Request().Context()
+	req := c.Request()
+	ctx := req.Context()
 
-	// Add client
+	// Get IP (handles proxies if configured in Echo)
+	ip := c.RealIP()
+
+	// TODO: Replace with real geo lookup if needed
+	geo := nodemanager.Geo{
+		Country: "unknown",
+		City:    "unknown",
+	}
+
 	client := &nodemanager.Client{
-		ClientId:   clientId,
-		ClientType: clientType,
+		ClientId:    clientId,
+		ClientType:  clientType,
+		IP:          ip,
+		Geo:         geo,
+		ConnectedAt: time.Now().Unix(),
+		LatencyMs:   0,   // initialize, update later
+		Load:        0.0, // initialize, update later
 	}
+
 	if err := nodemanager.AddClient(ctx, client); err != nil {
 		c.Logger().Error("Failed to add client", "message", err.Error())
 		return c.JSON(http.StatusInternalServerError, "Failed to store client")

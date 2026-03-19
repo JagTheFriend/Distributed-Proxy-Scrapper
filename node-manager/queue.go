@@ -5,10 +5,19 @@ import (
 	"encoding/json"
 )
 
+type Geo struct {
+	Country string `json:"country"`
+	City    string `json:"city"`
+}
+
 type Client struct {
-	ClientId string `json:"clientId"`
-	// web, mobile etc
-	ClientType string `json:"clientType"`
+	ClientId    string  `json:"clientId"`
+	ClientType  string  `json:"clientType"` // web, mobile etc
+	IP          string  `json:"ip"`
+	Geo         Geo     `json:"geo"`
+	ConnectedAt int64   `json:"connectedAt"` // Unix timestamp
+	LatencyMs   int     `json:"latencyMs"`
+	Load        float64 `json:"load"`
 }
 
 func GetClient(ctx context.Context, clientId string) (*Client, error) {
