@@ -32,14 +32,20 @@ func (h *WebSocketHandler) RegisterRoutes() {
 
 func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 	clientId := c.Request().Header.Get("ClientId")
-	if clientId == "" {
+	clientType := c.Request().Header.Get("ClientType")
+
+	if clientId == "" || clientType == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientId")
 	}
 
 	ctx := c.Request().Context()
 
 	// Add client
-	if err := nodemanager.AddClient(ctx, clientId); err != nil {
+	client := &nodemanager.Client{
+		ClientId:   clientId,
+		ClientType: clientType,
+	}
+	if err := nodemanager.AddClient(ctx, client); err != nil {
 		c.Logger().Error("Failed to add client", "message", err.Error())
 		return c.JSON(http.StatusInternalServerError, "Failed to store client")
 	}

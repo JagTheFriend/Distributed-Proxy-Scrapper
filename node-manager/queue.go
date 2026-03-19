@@ -7,6 +7,8 @@ import (
 
 type Client struct {
 	ClientId string `json:"clientId"`
+	// web, mobile etc
+	ClientType string `json:"clientType"`
 }
 
 func GetClient(ctx context.Context, clientId string) (*Client, error) {
@@ -25,16 +27,16 @@ func GetClient(ctx context.Context, clientId string) (*Client, error) {
 	return &client, nil
 }
 
-func AddClient(ctx context.Context, clientId string) error {
+func AddClient(ctx context.Context, client *Client) error {
 	valkey := GetValKeyClient()
 
 	// Convert struct to JSON
-	data, err := json.Marshal(clientId)
+	data, err := json.Marshal(client)
 	if err != nil {
 		return err
 	}
 
-	_, err = valkey.Set(ctx, "client:available:"+clientId, string(data))
+	_, err = valkey.Set(ctx, "client:available:"+client.ClientId, string(data))
 	return err
 }
 
