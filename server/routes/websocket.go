@@ -104,6 +104,7 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 					mu.Lock()
 					lastHeartbeat = time.Now()
 					mu.Unlock()
+					websocket.Message.Send(ws, "heartbeast_ack")
 					continue
 				}
 
