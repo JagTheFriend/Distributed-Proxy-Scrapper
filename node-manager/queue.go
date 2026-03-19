@@ -4,7 +4,8 @@ import (
 	"common"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
+	"strings"
 
 	"github.com/valkey-io/valkey-glide/go/v2/models"
 )
@@ -46,16 +47,19 @@ func UpdateClient(ctx context.Context, client *Client) error {
 
 func GetAvailableClient(ctx context.Context) (string, error) {
 	cursor := models.NewCursor()
+
 	for {
 		result, err := client.Scan(ctx, cursor)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 
-		keys := result.Data
-		fmt.Println(keys)
-		if len(keys) > 0 {
-			fmt.Println("SCAN iteration:", keys)
+		for _, key := range result.Data {
+
+			// Filter only available clients
+			if strings.HasPrefix(key, "client:available:") {
+				return key, nil
+			}
 		}
 
 		cursor = result.Cursor
@@ -63,7 +67,8 @@ func GetAvailableClient(ctx context.Context) (string, error) {
 			break
 		}
 	}
-	return "", nil
+
+	return "", errors.New("No Available Client")
 }
 
 func SetClientBusy(ctx context.Context, clientId string) error {
