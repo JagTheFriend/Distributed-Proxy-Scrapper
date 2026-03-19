@@ -34,20 +34,19 @@ func AddClient(ctx context.Context, client *Client) error {
 	return err
 }
 
-func GetAvailableClient(ctx context.Context) (string, error) {
+func GetAvailableClients(ctx context.Context) ([]string, error) {
 	cursor := models.NewCursor()
+	var clients []string
 
 	for {
 		result, err := client.Scan(ctx, cursor)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		for _, key := range result.Data {
-
-			// Filter only available clients
 			if strings.HasPrefix(key, "client:available:") {
-				return key, nil
+				clients = append(clients, key)
 			}
 		}
 
@@ -57,7 +56,11 @@ func GetAvailableClient(ctx context.Context) (string, error) {
 		}
 	}
 
-	return "", errors.New("No Available Client")
+	if len(clients) == 0 {
+		return nil, errors.New("no available clients")
+	}
+
+	return clients, nil
 }
 
 func SetClientBusy(ctx context.Context, clientId string) error {
