@@ -6,6 +6,7 @@ import (
 	"net/http"
 	nodemanager "node-manager"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,12 +68,7 @@ func (h *TriggerHandlerStruct) triggerSingle(c *echo.Context) error {
 	if payload.ClientId != "" {
 		clientId = payload.ClientId
 	} else {
-		// 2. Pick available node
-		key, err := nodemanager.GetAvailableClient(ctx)
-		if err != nil {
-			return echo.NewHTTPError(500, "No nodes available")
-		}
-		clientId = key[len("client:available:"):]
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing Data")
 	}
 
 	// mark busy
@@ -136,65 +132,84 @@ func (h *TriggerHandlerStruct) triggerMultiple(c *echo.Context) error {
 	ctx := context.Background()
 	method := normalizeMethod(payload.Method)
 
-	// pick node
-	key, err := nodemanager.GetAvailableClient(ctx)
+	// get ALL available clients
+	keys, err := nodemanager.GetAvailableClients(ctx)
 	if err != nil {
 		return echo.NewHTTPError(500, "No nodes available")
 	}
 
-	clientId := key[len("client:available:"):]
+	var responses []ResultMessage
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
-	// mark busy
-	err = nodemanager.SetClientBusy(ctx, clientId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to mark node as busy")
+	for _, key := range keys {
+		clientId := key[len("client:available:"):]
+
+		wg.Add(1)
+
+		go func(clientId string) {
+			defer wg.Done()
+
+			// mark busy
+			if err := nodemanager.SetClientBusy(ctx, clientId); err != nil {
+				return
+			}
+
+			// get WS
+			wsMutex.Lock()
+			ws, ok := wsClients[clientId]
+			wsMutex.Unlock()
+
+			if !ok {
+				return
+			}
+
+			jobId := uuid.NewString()
+
+			req := map[string]interface{}{
+				"type":  "JOB",
+				"jobId": jobId,
+				"payload": JobRequest{
+					Method: method,
+					URL:    payload.Link,
+				},
+			}
+
+			data, _ := json.Marshal(req)
+
+			// channel per job
+			ch := make(chan ResultMessage, 1)
+
+			wsMutex.Lock()
+			jobChannels[jobId] = ch
+			wsMutex.Unlock()
+
+			defer func() {
+				wsMutex.Lock()
+				delete(jobChannels, jobId)
+				wsMutex.Unlock()
+			}()
+
+			// send job
+			if err := websocket.Message.Send(ws, string(data)); err != nil {
+				return
+			}
+
+			// wait response
+			select {
+			case res := <-ch:
+				mu.Lock()
+				responses = append(responses, res)
+				mu.Unlock()
+			case <-time.After(20 * time.Second):
+				// skip timeout node
+			}
+
+		}(clientId)
 	}
 
-	// get WS
-	wsMutex.Lock()
-	ws, ok := wsClients[clientId]
-	wsMutex.Unlock()
+	// wait for all goroutines
+	wg.Wait()
 
-	if !ok {
-		return echo.NewHTTPError(500, "Node not connected")
-	}
-
-	// create job
-	jobId := uuid.NewString()
-
-	req := map[string]interface{}{
-		"type":  "JOB",
-		"jobId": jobId,
-		"payload": JobRequest{
-			Method: method,
-			URL:    payload.Link,
-		},
-	}
-
-	data, _ := json.Marshal(req)
-
-	// create channel
-	ch := make(chan ResultMessage)
-	wsMutex.Lock()
-	jobChannels[jobId] = ch
-	wsMutex.Unlock()
-
-	defer func() {
-		wsMutex.Lock()
-		delete(jobChannels, jobId)
-		wsMutex.Unlock()
-	}()
-
-	// send job
-	if err := websocket.Message.Send(ws, string(data)); err != nil {
-		return err
-	}
-
-	// wait response
-	select {
-	case res := <-ch:
-		return c.JSON(http.StatusOK, res)
-	case <-time.After(20 * time.Second):
-		return echo.NewHTTPError(504, "Timeout")
-	}
+	return c.JSON(http.StatusOK, responses)
 }
