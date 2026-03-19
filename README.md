@@ -40,6 +40,8 @@ Core Components:
   * Tracks node status
   * Enables fast lookup
 
+[System Design](./docs/system-design.png)
+
 ## Data Model
 
 ### Client (Node)
