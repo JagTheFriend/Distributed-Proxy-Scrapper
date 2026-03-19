@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 	nodemanager "node-manager"
 	"sync"
@@ -12,6 +12,24 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+type WSMessage struct {
+	Type    string          `json:"type"`
+	JobID   string          `json:"jobId,omitempty"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+}
+
+type ResultMessage struct {
+	Status   int    `json:"status"`
+	Body     string `json:"body"`
+	TimingMs int    `json:"timingMs"`
+}
+
+var (
+	wsClients   = make(map[string]*websocket.Conn)
+	wsMutex     sync.Mutex
+	jobChannels = make(map[string]chan ResultMessage)
+)
+
 type WebSocketHandler struct {
 	e      *echo.Group
 	valkey *glide.Client
@@ -19,11 +37,7 @@ type WebSocketHandler struct {
 
 func NewWebSocketHandler(e *echo.Group) *WebSocketHandler {
 	valkeyClient := nodemanager.GetValKeyClient()
-
-	return &WebSocketHandler{
-		e:      e,
-		valkey: valkeyClient,
-	}
+	return &WebSocketHandler{e: e, valkey: valkeyClient}
 }
 
 func (h *WebSocketHandler) RegisterRoutes() {
@@ -35,100 +49,87 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 	clientType := c.Request().Header.Get("ClientType")
 
 	if clientId == "" || clientType == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Missing ClientId or ClientType")
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing headers")
 	}
 
-	req := c.Request()
-	ctx := req.Context()
-
-	// Get IP (handles proxies if configured in Echo)
-	ip := c.RealIP()
-
-	// TODO: Replace with real geo lookup if needed
-	geo := nodemanager.Geo{
-		Country: "unknown",
-		City:    "unknown",
-	}
+	ctx := c.Request().Context()
 
 	client := &nodemanager.Client{
 		ClientId:    clientId,
 		ClientType:  clientType,
-		IP:          ip,
-		Geo:         geo,
+		IP:          c.RealIP(),
+		Status:      "idle",
 		ConnectedAt: time.Now().Unix(),
-		LatencyMs:   0,   // initialize, update later
-		Load:        0.0, // initialize, update later
 	}
 
 	if err := nodemanager.AddClient(ctx, client); err != nil {
-		c.Logger().Error("Failed to add client", "message", err.Error())
-		return c.JSON(http.StatusInternalServerError, "Failed to store client")
+		return err
 	}
 
-	// Ensure client removal on disconnect
-	defer func() {
-		if err := nodemanager.RemoveClient(ctx, clientId); err != nil {
-			c.Logger().Error("Failed to remove client", "message", err.Error())
-		}
-	}()
+	defer nodemanager.RemoveClient(ctx, clientId)
 
-	websocket.Server{
-		Handler: func(ws *websocket.Conn) {
-			defer ws.Close()
+	websocket.Handler(func(ws *websocket.Conn) {
+		defer ws.Close()
 
-			heartbeatTimeout := 10 * time.Second
-			lastHeartbeat := time.Now()
+		// store connection
+		wsMutex.Lock()
+		wsClients[clientId] = ws
+		wsMutex.Unlock()
 
-			// mutex to avoid race
-			var mu sync.Mutex
+		defer func() {
+			wsMutex.Lock()
+			delete(wsClients, clientId)
+			wsMutex.Unlock()
+		}()
 
-			done := make(chan struct{})
+		lastHeartbeat := time.Now()
+		done := make(chan struct{})
 
-			// Heartbeat monitor
-			go func() {
-				ticker := time.NewTicker(1 * time.Second)
-				defer ticker.Stop()
-
-				for {
-					select {
-					case <-ticker.C:
-						mu.Lock()
-						expired := time.Since(lastHeartbeat) > heartbeatTimeout
-						mu.Unlock()
-
-						if expired {
-							c.Logger().Error("Heartbeat timeout, closing connection")
-							ws.Close()
-							return
-						}
-					case <-done:
+		// heartbeat monitor
+		go func() {
+			for {
+				select {
+				case <-time.After(5 * time.Second):
+					if time.Since(lastHeartbeat) > 15*time.Second {
+						ws.Close()
 						return
 					}
-				}
-			}()
-
-			// Message loop
-			for {
-				var msg string
-				if err := websocket.Message.Receive(ws, &msg); err != nil {
-					c.Logger().Error("WS receive error", "message", err.Error())
-					close(done)
+				case <-done:
 					return
 				}
+			}
+		}()
 
-				// Handle heartbeat
-				if msg == "heartbeat" {
-					mu.Lock()
-					lastHeartbeat = time.Now()
-					mu.Unlock()
-					websocket.Message.Send(ws, "heartbeast_ack")
-					continue
+		for {
+			var msg WSMessage
+			if err := websocket.JSON.Receive(ws, &msg); err != nil {
+				close(done)
+				return
+			}
+
+			switch msg.Type {
+
+			case "PING":
+				lastHeartbeat = time.Now()
+				websocket.JSON.Send(ws, map[string]string{"type": "PONG"})
+
+			case "RESULT":
+				var res ResultMessage
+				json.Unmarshal(msg.Payload, &res)
+
+				wsMutex.Lock()
+				ch, ok := jobChannels[msg.JobID]
+				wsMutex.Unlock()
+
+				if ok {
+					ch <- res
 				}
 
-				fmt.Println("Received:", msg)
+				// mark node idle again
+				nodemanager.SetClientIdle(ctx, clientId)
 			}
-		},
-	}.ServeHTTP(c.Response(), c.Request())
+		}
+	}).ServeHTTP(c.Response(), c.Request())
 
 	return nil
 }
