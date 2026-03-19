@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/valkey-io/valkey-glide/go/v2/models"
@@ -20,7 +21,6 @@ type Client struct {
 	ClientType  string  `json:"clientType"`
 	IP          string  `json:"ip"`
 	Geo         Geo     `json:"geo"`
-	Status      string  `json:"status"` // idle | busy | blocked
 	ConnectedAt int64   `json:"connectedAt"`
 	LatencyMs   int     `json:"latencyMs"`
 	Load        float64 `json:"load"`
@@ -29,19 +29,9 @@ type Client struct {
 func AddClient(ctx context.Context, client *Client) error {
 	valkey := GetValKeyClient()
 
-	client.Status = "idle"
-
 	data, _ := json.Marshal(client)
 
 	_, err := valkey.Set(ctx, common.FormatClientKey("available", client.ClientId), string(data))
-	return err
-}
-
-func UpdateClient(ctx context.Context, client *Client) error {
-	valkey := GetValKeyClient()
-
-	data, _ := json.Marshal(client)
-	_, err := valkey.Set(ctx, common.FormatClientKey(client.Status, client.ClientId), string(data))
 	return err
 }
 
