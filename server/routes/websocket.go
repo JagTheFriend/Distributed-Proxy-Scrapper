@@ -45,11 +45,11 @@ func (h *WebSocketHandler) RegisterRoutes() {
 }
 
 func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
-	clientId := c.Request().Header.Get("ClientId")
-	clientType := c.Request().Header.Get("ClientType")
+	clientId := c.QueryParam("clientId")
+	clientType := c.QueryParam("clientType")
 
 	if clientId == "" || clientType == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Missing headers")
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing Query Params")
 	}
 
 	ctx := c.Request().Context()
@@ -68,68 +68,77 @@ func (h *WebSocketHandler) websocketRoute(c *echo.Context) error {
 
 	defer nodemanager.RemoveClient(ctx, clientId)
 
-	websocket.Handler(func(ws *websocket.Conn) {
-		defer ws.Close()
+	handler := websocket.Server{
+		Handler: websocket.Handler(func(ws *websocket.Conn) {
+			defer ws.Close()
 
-		// store connection
-		wsMutex.Lock()
-		wsClients[clientId] = ws
-		wsMutex.Unlock()
-
-		defer func() {
+			// store connection
 			wsMutex.Lock()
-			delete(wsClients, clientId)
+			wsClients[clientId] = ws
 			wsMutex.Unlock()
-		}()
 
-		lastHeartbeat := time.Now()
-		done := make(chan struct{})
+			defer func() {
+				wsMutex.Lock()
+				delete(wsClients, clientId)
+				wsMutex.Unlock()
+			}()
 
-		// heartbeat monitor
-		go func() {
-			for {
-				select {
-				case <-time.After(5 * time.Second):
-					if time.Since(lastHeartbeat) > 15*time.Second {
-						ws.Close()
+			lastHeartbeat := time.Now()
+			done := make(chan struct{})
+
+			// heartbeat monitor
+			go func() {
+				for {
+					select {
+					case <-time.After(5 * time.Second):
+						if time.Since(lastHeartbeat) > 15*time.Second {
+							ws.Close()
+							return
+						}
+					case <-done:
 						return
 					}
-				case <-done:
+				}
+			}()
+
+			for {
+				var msg WSMessage
+				if err := websocket.JSON.Receive(ws, &msg); err != nil {
+					close(done)
 					return
 				}
-			}
-		}()
 
-		for {
-			var msg WSMessage
-			if err := websocket.JSON.Receive(ws, &msg); err != nil {
-				close(done)
-				return
-			}
+				switch msg.Type {
 
-			switch msg.Type {
+				case "PING":
+					lastHeartbeat = time.Now()
+					websocket.JSON.Send(ws, map[string]string{"type": "PONG"})
 
-			case "PING":
-				lastHeartbeat = time.Now()
-				websocket.JSON.Send(ws, map[string]string{"type": "PONG"})
+				case "RESULT":
+					var res ResultMessage
+					json.Unmarshal(msg.Payload, &res)
 
-			case "RESULT":
-				var res ResultMessage
-				json.Unmarshal(msg.Payload, &res)
+					wsMutex.Lock()
+					ch, ok := jobChannels[msg.JobID]
+					wsMutex.Unlock()
 
-				wsMutex.Lock()
-				ch, ok := jobChannels[msg.JobID]
-				wsMutex.Unlock()
+					if ok {
+						ch <- res
+					}
 
-				if ok {
-					ch <- res
+					// mark node idle again
+					nodemanager.SetClientIdle(ctx, clientId)
 				}
-
-				// mark node idle again
-				nodemanager.SetClientIdle(ctx, clientId)
 			}
-		}
-	}).ServeHTTP(c.Response(), c.Request())
+		}),
+
+		// THIS FIXES YOUR 403 ISSUE
+		Handshake: func(config *websocket.Config, req *http.Request) error {
+			return nil // allow all origins
+		},
+	}
+
+	handler.ServeHTTP(c.Response(), c.Request())
 
 	return nil
 }
