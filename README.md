@@ -43,3 +43,31 @@ Core Components:
 ![System Design](./docs/system-design.png)
 Rough Sketch
 
+## Getting Started
+
+### Backend
+
+1. Install Go 1.26+, docker
+2. Install [air](https://github.com/air-verse/air]
+3. Clone the repository
+3. Run `go mod download`
+4. Setup `.env` file with these values:
+```sh
+VALKEY_HOST=localhost
+VALKEY_PORT=6379
+PORT=3000
+```
+6. Run `air` and visit [`http://localhost:3000`](http://localhost:3000)
+
+### Frontend
+
+1. Install Node v24.14.0+
+2. Run `cd docs/demo-project`
+3. Run `npm i`
+4. Run `npm run dev` and visit [`http://localhost:5173`](http://localhost:5173)
+
+### Docs
+
+1. Install [Yaak](https://yaak.app/)
+2. Make sure the Backend is running
+3. Import `docs/yaak.json`
