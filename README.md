@@ -1,4 +1,4 @@
-# Residential Proxy Node Manager (Go)
+# Distributed Proxy Scrapper (Go)
 
 A high-performance backend system for managing residential proxy nodes using WebSockets and Valkey (Redis-compatible). This service acts as the **central router** that connects API requests to distributed residential nodes and relays responses back in real time.
 
