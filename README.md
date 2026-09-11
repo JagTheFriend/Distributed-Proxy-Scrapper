@@ -48,7 +48,7 @@ Rough Sketch
 ### Backend
 
 1. Install Go 1.26+, docker
-2. Install [air](https://github.com/air-verse/air]
+2. Install [air](https://github.com/air-verse/air)
 3. Clone the repository
 3. Run `go mod download`
 4. Setup `.env` file with these values:
